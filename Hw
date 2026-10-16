@@ -1,0 +1,228 @@
+#include <iostream>
+#include <string>
+#include <algorithm>
+
+class AVL {
+private:
+    struct Node {
+        int   data;
+        int   h;
+        Node* left;
+        Node* right;
+        Node(int v) : data(v), h(1), left(nullptr), right(nullptr) {}
+    };
+
+    Node* root_ = nullptr;
+
+    int h(Node* n) const {
+        return n ? n->h : 0;
+    }
+
+    int bal(Node* n) const {
+        return h(n->right) - h(n->left);
+    }
+
+    void fix(Node* n) {
+        n->h = 1 + std::max(h(n->left), h(n->right));
+    }
+
+    Node* rotateLeft(Node* a) {
+        Node* b  = a->right;
+        a->right = b->left;
+        b->left  = a;
+        fix(a);
+        fix(b);
+        return b;
+    }
+
+    Node* rotateRight(Node* a) {
+        Node* b  = a->left;
+        a->left  = b->right;
+        b->right = a;
+        fix(a);
+        fix(b);
+        return b;
+    }
+
+    Node* rebalance(Node* v) {
+        if (bal(v) == 2) {
+            if (bal(v->right) < 0) {
+                v->right = rotateRight(v->right);
+            }
+            return rotateLeft(v);
+        }
+        if (bal(v) == -2) {
+            if (bal(v->left) > 0) {
+                v->left = rotateLeft(v->left);
+            }
+            return rotateRight(v);
+        }
+        return v;
+    }
+
+    Node* insert(Node* node, int x) {
+        if (!node) return new Node(x);
+        if (x < node->data)      node->left  = insert(node->left,  x);
+        else if (x > node->data) node->right = insert(node->right, x);
+        else                     return node;
+
+        fix(node);
+        return rebalance(node);
+    }
+
+    Node* minNode(Node* node) const {
+        while (node->left) node = node->left;
+        return node;
+    }
+
+    Node* erase(Node* node, int x) {
+        if (!node) return nullptr;
+
+        if (x < node->data) {
+            node->left = erase(node->left, x);
+        } else if (x > node->data) {
+            node->right = erase(node->right, x);
+        } else {
+            if (!node->left || !node->right) {
+                Node* child = node->left ? node->left : node->right;
+                delete node;
+                return child;
+            }
+            Node* succ  = minNode(node->right);
+            node->data  = succ->data;
+            node->right = erase(node->right, succ->data);
+        }
+
+        fix(node);
+        return rebalance(node);
+    }
+
+    bool contains(Node* node, int x) const {
+        while (node) {
+            if (x == node->data) return true;
+            node = (x < node->data) ? node->left : node->right;
+        }
+        return false;
+    }
+
+    void print(Node* node, bool& first) const {
+        if (!node) return;
+        if (!first) std::cout << ' ';
+        std::cout << node->data;
+        first = false;
+        print(node->left,  first);
+        print(node->right, first);
+    }
+
+    void destroy(Node* node) {
+        if (!node) return;
+        destroy(node->left);
+        destroy(node->right);
+        delete node;
+    }
+
+public:
+    AVL() = default;
+    ~AVL() { destroy(root_); }
+    AVL(const AVL&)            = delete;
+    AVL& operator=(const AVL&) = delete;
+
+    void add(int x) { root_ = insert(root_, x); }
+    void del(int x) { root_ = erase(root_, x); }
+
+    bool exists(int x) const { return contains(root_, x); }
+    bool empty()       const { return root_ == nullptr; }
+    int  rootKey()     const { return root_->data; }
+    int  height()      const { return h(root_); }
+
+    bool next(int x, int& result) const {
+        Node* cur = root_;
+        bool  ok  = false;
+        while (cur) {
+            if (cur->data >= x) {
+                result = cur->data;
+                ok     = true;
+                cur    = cur->left;
+            } else {
+                cur = cur->right;
+            }
+        }
+        return ok;
+    }
+
+    bool prev(int x, int& result) const {
+        Node* cur = root_;
+        bool  ok  = false;
+        while (cur) {
+            if (cur->data <= x) {
+                result = cur->data;
+                ok     = true;
+                cur    = cur->right;
+            } else {
+                cur = cur->left;
+            }
+        }
+        return ok;
+    }
+
+    void print() const {
+        if (!root_) {
+            std::cout << "Empty\n";
+            return;
+        }
+        bool first = true;
+        print(root_, first);
+        std::cout << '\n';
+    }
+};
+
+int main() {
+    std::ios::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+
+    int q;
+    std::cin >> q;
+
+    AVL tree;
+    std::string cmd;
+
+    for (int i = 0; i < q; ++i) {
+        std::cin >> cmd;
+
+        if (cmd == "add") {
+            int x; std::cin >> x;
+            tree.add(x);
+        }
+        else if (cmd == "del") {
+            int x; std::cin >> x;
+            tree.del(x);
+        }
+        else if (cmd == "exists") {
+            int x; std::cin >> x;
+            std::cout << (tree.exists(x) ? "YES" : "NO") << '\n';
+        }
+        else if (cmd == "next") {
+            int x; std::cin >> x;
+            int r;
+            if (tree.next(x, r)) std::cout << r << '\n';
+            else                 std::cout << "None\n";
+        }
+        else if (cmd == "prev") {
+            int x; std::cin >> x;
+            int r;
+            if (tree.prev(x, r)) std::cout << r << '\n';
+            else                 std::cout << "None\n";
+        }
+        else if (cmd == "root") {
+            if (tree.empty()) std::cout << "Empty\n";
+            else              std::cout << tree.rootKey() << '\n';
+        }
+        else if (cmd == "height") {
+            std::cout << tree.height() << '\n';
+        }
+        else if (cmd == "print") {
+            tree.print();
+        }
+    }
+    return 0;
+} 
